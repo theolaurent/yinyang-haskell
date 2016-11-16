@@ -13,7 +13,6 @@ import Control.Monad.Identity
 
 import Data.Void (Void)
 
--- I am clearly relying on internals of Cont module
 newtype RecK w m = RecK { unRecK :: KT w m (RecK w m) }
 
 
