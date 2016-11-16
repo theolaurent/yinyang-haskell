@@ -1,4 +1,3 @@
-{-# LANGUAGE RankNTypes #-}
 
 -- http://okmij.org/ftp/continuations/
 -- https://en.wikipedia.org/wiki/Call-with-current-continuation
@@ -7,37 +6,42 @@
 -- TODO: https://hackage.haskell.org/package/CC-delcont-0.2.1.0/docs/Control-Monad-CC.html ?
 
 -- TODO: check for recursive types in haskell
--- TODO: or try the same workaround as Y combinator with in/out?
 
 import Cont
 import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Identity
 
--- term3c :: Cont w Int -> Cont w String
--- term3c x = do
---   v1 <- callCC (\p ->
---           do
---           v1 <- x
---           v2 <- if v1 == 0 then throw p '-' else return (10 `div` v1)
---           if v2 > 5 then return '5' else return '0')
---   return $ "Result: " ++ [v1]
-
-
-
--- test :: (forall w . Cont w ())
--- test = do
---   _ <- callCC (\ k -> throw k (Left (\ x -> throw k (Right x))))
---   return ()
-
+import Data.Void (Void)
 
 -- I am clearly relying on internals of Cont module
 newtype RecK w m = RecK { unRecK :: KT w m (RecK w m) }
 
-loopTest :: ExtContT IO ()
+
+loopTest :: ContT w IO ()
 loopTest = do
-  -- _ <- callCCT (\ k -> throwT k (Left (\ x -> throwT k (Right x))))
   k <- callCCT (\k -> return $ RecK k)
   liftIO $ print "test"
   throwT (unRecK k) k
 
+yinyang :: ContT w IO ()
+yinyang = do
+  let yin :: ContT w IO (RecK w IO)
+      yin = do
+        k <- callCCT (\ k -> return $ RecK k)
+        liftIO $ print "@"
+        return k
+  -- ((lambda (cc) (display #\@) cc) (call-with-current-continuation (lambda (c) c)
+  -- (\ cc -> print "@" ; cc) (callCC id)
+  -- a -> a                  K (K (K ...))
+  let yang :: ContT w IO (RecK w IO)
+      yang = do
+        k <- callCCT (\ k -> return $ RecK k)
+        liftIO $ print "*"
+        return k
+  k1 <- yin
+  k2 <- yang
+  throwT (unRecK k1) k2
+
+
 main :: IO ()
-main = runContT loopTest
+main = runContT yinyang

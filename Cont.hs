@@ -9,8 +9,6 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import Control.Monad (ap, liftM)
 
-type ExtContT m a = forall w . ContT w m a
-
 newtype ContT w m a = ContT { unContT :: (a -> m w) -> m w }
 
 instance Monad (ContT w m) where
@@ -47,20 +45,3 @@ instance MonadTrans (ContT r) where
 
 instance (MonadIO m) => MonadIO (ContT r m) where
     liftIO = lift . liftIO
-
-class Monad c => ContMonad c where
-  callCC :: K c k => (k a -> c a) -> c a
-  throw :: K c k => k a -> c a
-  runCont :: c a -> a
-
-
-
--- type Cont w = ContT w Identity
-
--- type K w a = a -> w
-
--- callCC :: (K w a -> Cont w a) -> Cont w a
--- callCC f = Cont $ \k -> unCont (f k) k
-
--- throw :: K w a -> a -> Cont w b
--- throw k x = Cont $ \ _ -> k x
