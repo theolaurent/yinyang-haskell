@@ -9,38 +9,43 @@
 
 import Cont
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Identity
 
-import Data.Void (Void)
+-- import Data.Void (Void)
 
-newtype RecK w m = RecK { unRecK :: KT w m (RecK w m) }
+newtype RecK w m = RecK { unRecK :: K w m (RecK w m) }
 
 
-loopTest :: ContT w IO ()
-loopTest = do
-  k <- callCCT (\k -> return $ RecK k)
-  liftIO $ print "test"
-  throwT (unRecK k) k
+-- excludedMiddle :: Cont' (Either (a -> Void) a)
+-- excludedMiddle = do
+--   let it :: Cont w (Either (a -> Cont w b) a)
+--       it = callCC (\ k -> throw k (Left (\ x -> throw k (Right x))))
+--   res <- it
+--   case res of
+--     Right a -> return $ Right a
+--     Left  f -> undefined -- TODO: to write this I would need the Falsum version and "dynamic check"
+--                          -- that is continuation that are not type-guaranteed not to escape their scope
+--                          -- an alternative would be continuations that you can't run
 
-yinyang :: ContT w IO ()
+
+yinyang :: ContM' IO ()
 yinyang = do
-  let yin :: ContT w IO (RecK w IO)
+  let yin :: ContM w IO (RecK w IO)
       yin = do
-        k <- callCCT (\ k -> return $ RecK k)
+        k <- callCC (\ k -> return $ RecK k)
         liftIO $ print "@"
         return k
   -- ((lambda (cc) (display #\@) cc) (call-with-current-continuation (lambda (c) c)
   -- (\ cc -> print "@" ; cc) (callCC id)
   -- a -> a                  K (K (K ...))
-  let yang :: ContT w IO (RecK w IO)
+  let yang :: ContM w IO (RecK w IO)
       yang = do
-        k <- callCCT (\ k -> return $ RecK k)
+        k <- callCC (\ k -> return $ RecK k)
         liftIO $ print "*"
         return k
   k1 <- yin
   k2 <- yang
-  throwT (unRecK k1) k2
+  throw (unRecK k1) k2
 
 
 main :: IO ()
-main = runContT yinyang
+main = runContM yinyang

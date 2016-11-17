@@ -4,44 +4,52 @@
 
 module Cont where
 
-import Data.Functor.Identity
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import Control.Monad (ap, liftM)
 
-newtype ContT w m a = ContT { unContT :: (a -> m w) -> m w }
+import Control.Monad.Identity
 
-instance Monad (ContT w m) where
-    return x = ContT $ \k -> k x
-    m >>= f  = ContT $ \k -> unContT m (\mv -> unContT (f mv) k)
+newtype ContM w m a = ContM { unContM :: (a -> m w) -> m w }
+type ContM' m a = forall w . ContM w m a
 
-instance Applicative (ContT w m) where
+instance Monad (ContM w m) where
+    return x = ContM $ \k -> k x
+    m >>= f  = ContM $ \k -> unContM m (\mv -> unContM (f mv) k)
+
+instance Applicative (ContM w m) where
   pure = return
   (<*>) = ap
 
-instance Functor (ContT w m) where
+instance Functor (ContM w m) where
   fmap = liftM
 
 
 -- The type of the captured continuation
 -- Once again, it is not a function in the object language;
 -- it's result is NOT of the type Cont w x
-type KT w m a = a -> m w
+type K w m a = a -> m w
 
-callCCT :: (KT w m a -> ContT w m a) -> ContT w m a
-callCCT f = ContT $ \k -> unContT (f k) k
+callCC :: (K w m a -> ContM w m a) -> ContM w m a
+callCC f = ContM $ \k -> unContM (f k) k
 
-throwT :: KT w m a -> a -> ContT w m b
-throwT k x = ContT $ \ _ -> k x
+throw :: K w m a -> a -> ContM w m b
+throw k x = ContM $ \ _ -> k x
 
 -- And here is the main difference from Cont: the higher-rank type of
 -- runCont, ensuring that the computation should really not have looked
 -- at the answer-type
-runContT :: Monad m => (forall w. ContT w m a) -> m a
-runContT m = unContT m return
+runContM :: Monad m => ContM' m a -> m a
+runContM m = unContM m return
 
-instance MonadTrans (ContT r) where
-    lift m = ContT (m >>=)
+instance MonadTrans (ContM r) where
+    lift m = ContM (m >>=)
 
-instance (MonadIO m) => MonadIO (ContT r m) where
+instance (MonadIO m) => MonadIO (ContM r m) where
     liftIO = lift . liftIO
+
+type Cont w a = ContM w Identity a
+type Cont' a = forall w . Cont w a
+
+runCont :: Cont' a -> a
+runCont x = runIdentity $ runContM x
