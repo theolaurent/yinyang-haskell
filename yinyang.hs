@@ -5,8 +5,6 @@
 
 -- TODO: https://hackage.haskell.org/package/CC-delcont-0.2.1.0/docs/Control-Monad-CC.html ?
 
--- TODO: check for recursive types in haskell
-
 import Cont
 import Control.Monad.IO.Class (liftIO)
 
